@@ -1,0 +1,45 @@
+HDFS
+======================
+start-dfs.sh
+start-yarn.sh
+jps
+http://localhost:50070 ------>(Firefox--UI for HDFS)
+----------------------------------------------------------
+-create dir in HDFS
+hadoop fs -mkdir /user/test
+hdfs dfs -mkdir /user/test1
+
+-copy from local to HDFS
+hadoop fs -copyFromLocal /home/hduser/new.txt /user/test
+hadoop fs -put /home/hduser/new.txt /user/test
+
+-move from local to HDFS
+hadoop fs -moveFromLocal /user/test/new.txt /user/test1
+
+-view hdfs files
+hadoop fs -ls /user/test
+
+-delete file
+hadoop fs -rm -r /user/test/new.txt
+
+-copy from HDFS to local 
+hadoop fs -get [-crc] /user/test/new.txt /home/hduser/p
+moveToLocal <src><localDest>
+
+-Sets the target replication factor
+setrep [-R] [-w] rep <path>
+
+-Creates a file at path containing the current time as a timestamp. 
+ Fails if a file already exists at path, unless the file is already size 0.
+touchz <path>
+
+-Returns 1 if path exists; has zero length; or is a directory or 0 otherwise.
+test -[ezd] <path>
+
+-Prints information about path.
+stat [format] <path>
+
+
+
+
+

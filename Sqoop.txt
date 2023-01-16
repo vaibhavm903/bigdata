@@ -1,0 +1,342 @@
+Grant MySql permission to database to access by sqoop
+-------------------------------------------------------
+mysql> grant all privileges on stud.* to '%'@'localhost'; 
+Query OK, 0 rows affected (0.50 sec)
+
+mysql> grant all privileges on stud.* to ''@'localhost'; 
+Query OK, 0 rows affected (0.00 sec)
+
+Sqoop import command
+-------------------------------
+sqoop import --connect jdbc:mysql://localhost/stud --table student;   
+
+sqoop import --connect jdbc:mysql://localhost/stud --table student -m 1 --target-dir '/Import9/'; //mapper 1 (-m 1)
+
+sqoop import --connect jdbc:mysql://localhost/stud --table student -m 1 --fields-terminated-by '|' --target-dir '/Import9/';
+
+sqoop list-databases --connect jdbc:mysql://localhost; //list databases
+
+sqoop list-table --connect jdbc:mysql://localhost/stud; //list tables
+
+
+EVAL
+------------------
+admin1@admin1:~$ sqoop eval --connect jdbc:mysql://localhost/stud --query "select * from student";
+CREATE NEW TABLE USING SQOOP
+admin1@admin1:~$ sqoop eval --connect jdbc:mysql://localhost/stud --query "create table stud_info(stud_age int,stud_add varchar (30),stud_college varchar(30))";
+admin1@admin1:~$ sqoop eval --connect jdbc:mysql://localhost/stud --query "select * from stud_info";
+admin1@admin1:~$ sqoop eval --connect jdbc:mysql://localhost/stud --query "insert into stud_info values(14,'MH','SPPU')";
+admin1@admin1:~$ sqoop eval --connect jdbc:mysql://localhost/stud --query "insert into stud_info values(15,'MP','RGTU')"
+admin1@admin1:~$ sqoop eval --connect jdbc:mysql://localhost/stud --query "insert into stud_info values(13,'UP','UPTU')"
+admin1@admin1:~$ sqoop eval --connect jdbc:mysql://localhost/stud --query "insert into stud_info values(17,'GJ','GJU')"
+admin1@admin1:~$ sqoop eval --connect jdbc:mysql://localhost/stud --query "select * from stud_info";
+
+sqoop eval --connect jdbc:mysql://localhost/stud --query "update stud_info set stud_college='DYPU' where stud_age=14";
+
+IMPORT USING EVAL
+--------------------------
+admin1@admin1:~$ sqoop import --connect jdbc:mysql://localhost/stud --query "select * from stud_info where stud_age>15 and \$CONDITIONS" --target-dir '/Import9query' -m 1;
+
+Joining
+-------------------------------------
+admin1@admin1:~$ sqoop import --connect jdbc:mysql://localhost/stud --query "select e.eid,e.ename,e.esal,d.deptid,d.dname,d.dloc from emp e inner join dept d on(e.eid=d.eid) where \$CONDITIONS" --target-dir '/Import9join' -m 1;
+
+-----display data using different file------
+
+admin1@admin1:~$ sqoop import --connect jdbc:mysql://localhost/stud --table emp -m 1 --fields-terminated-by '|' --where 'esal>15000' --target-dir '/viru/' --as-sequencefile;
+
+
+-------export data from HDFS to MYSQL-------
+
+admin1@admin1:~$ sqoop export --connect jdbc:mysql://localhost/stud --table emp --export-dir '/Import9/part-m-00000' --fields-terminated-by ',';
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Sqoop Incremental
+================================================================================
+
+You have a database table with an INTEGER primary key. 
+
+You are only appending new rows, and you need to periodically sync the table’s state to Hadoop for further processing.
+
+Activate Sqoop’s incremental feature by specifying the --incremental parameter. 
+
+The parameter’s value will be the type of incremental import. When your table is only getting new rows and the existing ones are not changed, use the append mode.
+
+- - - > Syntax
+
+sqoop import \
+--connect jdbc:mysql://mysql.example.com/sqoop \
+--username sqoop \
+--password sqoop \
+--table visits \
+--incremental append \
+--check-column id \
+--last-value 1
+
+create table emp1(emp_id INT NOT NULL AUTO_INCREMENT,emp_name VARCHAR(100),emp_sal INT,PRIMARY KEY(emp_id));
+
+insert into emp1 values(1,"virendra",80000),(2,"Rajesh",60000),(3,"Naresh",70000);
+
+select * from emp1;
+
+Sqoop import --connect jdbc:mysql://localhost/db1 --username root --password password --table emp1 -m1 --tagret-dir /Incremental
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password password --table emp1 --m 1 --where --target-dir /Incremental
+
+
+
+hadoop dfs -ls /Incremental
+
+hadoop dfs -cat /Incremental/part-m-00000
+
+mysql>insert into emp1 values(4,"seete",45000),(5,"Geeta",35000),(6,"Arjit",30000);
+
+mysql>select * from emp1;
+
+Sqoop import --connect jdbc:mysql://localhost/db1 --username root --password password --table emp1 -m1 --tagret-dir /Incremental --incremental append --check-column emp_id --last-value 7
+
+
+sqoop import \
+--connect jdbc:mysql://localhost/userdb \
+--username root \
+--table emp \
+--m 1 \
+--incremental append \
+--check-column id \
+-last value 1205
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Split by
+============================================================================================
+
+--split-by : It is used to specify the column of the table used to generate splits for imports. 
+
+This means that it specifies which column will be used to create the split while importing the data into your cluster. 
+
+It can be used to enhance the import performance by achieving greater parallelism.
+ 
+Sqoop creates splits based on values in a particular column of the table which is specified by --split-by by the user through the import command. 
+
+If it is not available, the primary key of the input table is used to create the splits.
+
+Reason to use : Sometimes the primary key doesn't have an even distribution of values between the min and max values(which is used to create the splits if --split-by is not available). 
+
+In such a situation you can specify some other column which has proper distribution of data to create splits for efficient imports.
+
+--boundary-query : By default sqoop will use query select min(), max() from to find out boundaries for creating splits. 
+
+In some cases this query is not the most optimal so you can specify any arbitrary query returning two numeric columns using --boundary-query argument.
+
+Reason to use : If --split-by is not giving you the optimal performance you can use this to improve the performance further.
+
+$CONDITIONS is used by Sqoop process, it will replace with a unique condition expression internally to get the data-set. 
+
+If you run a parallel import, the map tasks will execute your query with different values substituted in for $CONDITIONS. e.g., one mapper may execute "select bla from foo WHERE (id >=0 AND id < 10000)", and the next mapper may execute "select bla from foo WHERE (id >= 10000 AND id < 20000)" and so on.
+
+
+
+
+
+++++++++++++++++++++++++++++++++++++++
+Sqoop Import All Tables
+===================================================
+
+sqoop import-all-tables \
+--connect jdbc:mysql://localhost/mysql \
+--username root \
+--password hr
+
+
+Important Error 
+
+ERROR tool.ImportAllTablesTool: Error during import: No primary key could be found for table general_log. Please specify one with --split-by or perform a sequential import with '-m 1'.
+
+ERROR tool.ImportAllTablesTool: Error during import: No primary key could be found for table salary. Please specify one with --split-by or perform a sequential import with '-m 1'.
+
+
+
+Solution:
+1.
+
+sqoop import-all-tables --connect "jdbc:mysql://localhost/vaibhav" \
+--username root\
+--password hr\
+--autoreset-to-one-mapper \
+--warehouse-dir  /user/itelligence/sqoop_import/
+
+
+
+2.
+
+sqoop import-all-tables --connect "jdbc:mysql://localhost/vaibhav" \
+--username root\
+--password hr\
+--m 1
+
+
+3.
+sqoop import-all-tables --connect "jdbc:mysql://localhost/vaibhav" \
+--username root\
+--password hr\
+--m 1
+--as-avrodatafile
+--compression-codec snappy
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+sqoop job --create myjob \
+--import \
+--connect jdbc:mysql://localhost/vaibhav \
+--username root \
+--password hr \
+--table employees --m 1
+
+
+Error-free:
+
+sqoop job --create myjob1 -- import --connect jdbc:mysql://localhost/vaibhav -username root -P --table salary -m 1 --target-dir /Sqoop/MRJob1
+
+
+sqoop job --create myjob -- import --connect jdbc:mysql://localhost/vaibhav -username root -P --table employees -m 1 --target-dir /Sqoop/MRJob
+
+sqoop job --list
+
+sqoop job --create myjob1 -- import --connect jdbc:mysql://localhost/vaibhav -username root -P --table salary -m 1 --target-dir /Sqoop/MRJob1
+
+
+
+sqoop job --create myjob2 -- import --connect jdbc:mysql://localhost/vaibhav -username root -P --table salary -m 1 --target-dir /Sqoop/MRJob2
+
+
+sqoop job --show myjob
+sqoop job --show myjob1
+
+sqoop job --exec myjob
+sqoop job --exec myjob1
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+sqoop eval \
+--connect jdbc:mysql://localhost/vaibhav \
+--username root \ 
+--query “SELECT * FROM employees LIMIT 3”
+
+
+
+sqoop eval \
+--connect jdbc:mysql://localhost/vaibhav \
+--username root \ 
+-e “INSERT INTO employee VALUES(1207,‘Raju’,‘UI dev’,15000,‘TP’)”
+
+error-free:
+
+sqoop eval --connect jdbc:mysql://localhost/vaibhav --username root --P --query "select * from employees LIMIT 3"
+
+
+sqoop eval --connect jdbc:mysql://localhost/vaibhav --username root --P --query "select * from salary LIMIT 1"
+
+sqoop eval --connect jdbc:mysql://localhost/vaibhav --username root --P -e “INSERT INTO salary VALUES(1207)"
+
+error-free:
+
+sqoop eval --connect jdbc:mysql://localhost/vaibhav --username root --P -e "INSERT INTO salary values (1200)"
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+LIST DATABASES:
+
+sqoop list-databases \
+--connect jdbc:mysql://localhost/ \
+--username root --password hr
+
+
+LIST TABLES:
+
+sqoop list-tables \
+--connect jdbc:mysql://localhost/mysql \
+--username root --password hr
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+sqoop export
+
+
+
+sqoop export --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table salary1 --export-dir /Sqoop/MRJob1/part-m-00000
+
+
+create table employee as select * from employees where 1=2;
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Split By
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --query 'select * from salary1 where sal>5 AND $CONDITIONS' --split-by salary1.sal --target-dir /splitby
+
+
+++++++++++++++++++++++++++++++++++++++++++++
+
+Hive Import 
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --hive-import
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root  --password hr --table employees --hive-import
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+sqoop-list-databases --connect jdbc:mysql://localhost/ --username root -P	
+#connecting to MySQL server and listing all databases
+
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees 
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --m 1
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --m 2
+
+TARGET DIRECTORY
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --m 1 --target-dir /trgtdir
+
+Import Subset of Table Data
+
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --m 1 --where "first_name = 'Bruce'" --target-dir /WHERECLAUStext
+
+
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --m 1 --where “DEPARTMENT_ID = ’101’” --target-dir /whereclause 
+
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --m 1 --where “FIRST_NAME = ’Bruce’” --target-dir /trgtdir
+
+
+
+Incremental IMPORT:
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --m 1 --incremental append --check-column EMPLOYEE_ID -last-value 205
+
+sqoop import --connect jdbc:mysql://localhost/vaibhav --username root --password hr --table employees --m 1 --incremental append --check-column EMPLOYEE_ID -last-value 205
+
+
+
+sqoop import \
+--connect jdbc:mysql://localhost/vaibhav \
+--username root \
+--password hr \
+--table employees \
+--m 1 \
+--incremental append \
+--check-column EMPLOYEE_ID \
+-last value 205

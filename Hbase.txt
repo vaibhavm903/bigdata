@@ -1,0 +1,48 @@
+HBase
+============================================================================
+-start hmaster
+start-hbase.sh
+
+-start hbase
+hbase shell
+----------------------------------------------------------------------------
+-to check tables
+list
+
+-create table
+-create ‘<table name>’,’<column family>’
+create 'emp', 'personal data', 'professional data'
+
+-Disabling a Table
+disable 'emp'
+is_disabled 'emp'
+disable_all 'r.*' ---->(disable all the tables matching the given regex.)
+
+-Enabling a Table
+enable ‘emp’
+scan 'emp' ---->(verify you can see the schema)
+is_enabled 'emp'
+
+-description of the table
+describe 'emp'
+
+-Table Scope Operators
+-Using alter, you can set and remove table scope operators such as 
+-MAX_FILESIZE, READONLY, MEMSTORE_FLUSHSIZE, DEFERRED_LOG_FLUSH, etc
+alter 'emp', READONLY
+
+-Deleting a Column Family
+alter ‘ table name ’, ‘delete’ ⇒ ‘ column family ’
+
+-adding column
+alter 'emp', NAME => 'newcolumnfamily', VERSIONS => 50
+
+-Setting Read Only
+alter 'emp', READONLY
+
+-Removing Table Scope Operators
+alter 'emp', METHOD ⇒ 'table_att_unset', NAME ⇒ 'MAX_FILESIZE'
+alter 'emp', METHOD ⇒ 'table_att_unset', NAME ⇒ 'READONLY'
+
+
+

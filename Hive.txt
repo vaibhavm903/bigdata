@@ -1,0 +1,184 @@
+Create Database
+--------------------------
+
+CREATE DATABASE [IF NOT EXISTS] <database_name>
+
+Create Table
+---------------------------
+
+CREATE TABLE IF NOT EXISTS emp.employee (
+ id int,
+ name string,
+ age int,
+ gender string )
+ COMMENT 'Employee Table'
+ ROW FORMAT DELIMITED
+ FIELDS TERMINATED BY ',';
+
+Load Data Into the Table
+-----------------------------
+
+
+LOAD DATA INPATH '/user/hive/data/data.txt' INTO TABLE emp.employee;
+
+
+Create External Table
+-----------------------------
+
+CREATE EXTERNAL TABLE emp.employee_external (
+ id int,
+ name string,
+ age int,
+ gender string)
+ ROW FORMAT DELIMITED
+ FIELDS TERMINATED BY ','
+ LOCATION '/user/hive/data/employee_external';
+
+
+Temporary Table
+-------------------------------
+
+CREATE TEMPORARY TABLE emp.employee_tmp (
+ id int,
+ name string,
+ age int,
+ gender string)
+ ROW FORMAT DELIMITED
+ FIELDS TERMINATED BY ',';
+
+Transactional Table
+--------------------------------
+
+CREATE TRANSACTIONAL TABLE emp.employee_tmp (
+ id int,
+ name string,
+ age int,
+ gender string)
+ ROW FORMAT DELIMITED
+ FIELDS TERMINATED BY ','
+ STORED AS ORC;
+
+Create Table from exsiting tables
+---------------------------------------
+
+
+CREATE TABLE emp.filter AS SELECT id,name FROM emp.employee WHERE gender = 'F';
+
+
+With similar structure :   
+CREATE TABLE emp.similar LIKE emp.employee;
+
+
+Drop Table
+-------------------------
+
+DROP TABLE [IF EXISTS] table_name [PURGE];
+
+Drop Database
+---------------------
+
+DROP DATABASE [IF EXISTS] database_name [RESTRICT|CASCADE];
+
+
+Export Output
+----------------------
+
+#Exports to LOCAL directory
+INSERT OVERWRITE LOCAL DIRECTORY '/tmp/export' ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' SELECT * FROM emp.employee;
+
+
+
+cat /tmp/export/* > output.csv
+
+
+Partition Table
+------------------------------------------
+hive> set hive.exec.dynamic.partition=true;    
+hive> set hive.exec.dynamic.partition.mode=nonstrict; 
+
+
+
+
+CREATE TABLE zipcodes(
+RecordNumber int,
+Country string,
+City string,
+Zipcode int)
+PARTITIONED BY(state string)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ',';
+
+
+hdfs dfs -put zipcodes.csv /data/
+jdbc:hive2://127.0.0.1:10000> LOAD DATA INPATH '/data/zipcodes.csv' INTO TABLE zipcodes;
+
+
+INSERT INTO zipcodes PARTITION(state='FL') VALUES (891,'US','TAMPA',33605);
+
+
+INSERT OVERWRITE TABLE zipcodes PARTITION(state='NA') VALUES (896,'US','TAMPA',33607);
+
+Drop PARTITION
+
+jdbc:hive2://127.0.0.1:10000> ALTER TABLE zipcodes DROP IF EXISTS PARTITION (state='AL');
+
+Update
+
+jdbc:hive2://127.0.0.1:10000> ALTER TABLE zipcodes PARTITION(state='NC') 
+SET LOCATION '/data/state=NC';
+
+
+
+Dynamic Partition
++++++++++++++++++++++++++++++++++++
+
+hive> create table stud_demo(id int, name string, age int, institute string, course string)   
+row format delimited  
+fields terminated by ',';  
+
+hive> load data local inpath '/home/codegyani/hive/student_details' into table stud_demo; 
+
+create table student_part (id int, name string, age int, institute string)   
+partitioned by (course string)  
+row format delimited  
+fields terminated by ',';  
+
+hive> insert into student_part  
+partition(course)  
+select id, name, age, institute, course  
+from stud_demo;  
+
+
+Bucketing
+==================
+
+#This property is not needed if you are using Hive 2.x or later
+set hive.enforce.bucketing = true;
+
+
+CREATE TABLE zipcodes(
+RecordNumber int,
+Country string,
+City string,
+Zipcode int)
+PARTITIONED BY(state string)
+CLUSTERED BY (Zipcode) INTO 32 BUCKETS
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ',';
+
+
+LOAD DATA INPATH '/data/zipcodes.csv' INTO TABLE zipcodes;
+
+
+0: jdbc:hive2://> SELECT * FROM zipcodes WHERE state='PR' and zipcode=704;
+OK
++------------------------+-------------------+----------------------+-------------------+-----------------+s
+| zipcodes.recordnumber  | zipcodes.country  |    zipcodes.city     | zipcodes.zipcode  | zipcodes.state  |
++------------------------+-------------------+----------------------+-------------------+-----------------+
+| 3                      | US                | SECT LANAUSSE        | 704               | PR              |
+| 2                      | US                | PASEO COSTA DEL SUR  | 704               | PR              |
+| 4                      | US                | URB EUGENE RICE      | 704               | PR              |
+| 1                      | US                | PARC PARQUE          | 704               | PR              |
++------------------------+-------------------+----------------------+-------------------+-----------------+
+4 rows selected (0.381 seconds)
+0: jdbc:hive2://>
